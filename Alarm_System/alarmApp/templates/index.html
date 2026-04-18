@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        /* Filter Form */
+        form {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        form label {
+            font-weight: bold;
+        }
+
+        form input,
+        form select,
+        form button {
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        form button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        form button:hover {
+            background: #0056b3;
+        }
+
+        /* Event Cards */
+        .event-card {
+            background: white;
+            padding: 15px;
+            margin: 15px auto;
+            width: 90%;
+            max-width: 500px;
+            border-left: 5px solid #007bff;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease;
+        }
+
+        .event-card:hover {
+            transform: scale(1.02);
+        }
+
+        .event-card h3 {
+            margin: 0 0 5px;
+            color: #007bff;
+        }
+
+        .event-card p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        .event-card small {
+            color: #888;
+        }
+
+        /* Add Event Button */
+        .add-btn {
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            text-align: center;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .add-btn:hover {
+            background: #1e7e34;
+        }
+
+        /* Alarm Modal */
+        #alarmModal {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        #alarmModal div {
+            animation: popUp 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes popUp {
+            from {
+                transform: scale(0.8);
+            }
+
+            to {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <form method="get">
+        <label>Select Date:</label>
+        <input type="date" name="date">
+
+        <label>Month:</label>
+        <select name="month">
+            <option value="">All</option>
+            <option value="1">Jan</option>
+            <option value="2">Feb</option>
+            <option value="3">Mar</option>
+            <!-- Add more -->
+        </select>
+
+        <label>Weekday:</label>
+        <select name="weekday">
+            <option value="">All</option>
+            <option value="1">Sunday</option>
+            <option value="2">Monday</option>
+            <option value="3">Tuesday</option>
+            <option value="4">Wednesday</option>
+            <option value="5">Thursday</option>
+            <option value="6">Friday</option>
+            <option value="7">Saturday</option>
+        </select>
+
+        <button type="submit">Filter</button>
+    </form>
+
+    <hr>
+
+    {%for event in events%}
+    <div class="event-card">
+        <h3>{{event.title}}</h3>
+        <p>{{event.description}}</p>
+        <small>{{event.start_date}} -> {{event.end_date}}</small>
+    </div>
+    {%empty%}
+    <p style="text-align:center;">No events found</p>
+    {% endfor %}
+
+    <div style="margin: 15px 0 15px 0;">
+        <!-- <a href="{% url 'add_event' %}" class="btn btn-primary" style="margin-top: 2rem;">+ Add Event</a> -->
+        <a href="{% url 'add_event' %}" class="add-btn">+ Add Event</a>
+    </div>
+
+    <div id="alarmModal" style="
+                    display:none;
+                    position:fixed;
+                    top:0;
+                    left:0;
+                    width:100%;
+                    height:100%;
+                    background:rgba(0,0,0,0.5);
+                    justify-content:center;
+                    align-items:center;
+                ">
+        <div style="background:white; padding:20px; border-radius:8px; text-align:center; width:300px;">
+            <h3 id="alarmTitle">Event Reminder</h3>
+            <p id="alarmText"></p>
+            <button id="stopAlarmBtn"
+                style="margin-top:10px; padding:8px 12px; background:red; color:white; border:none;">
+                Stop Alarm
+            </button>
+
+            <button id="snoozeAlarmBtn"
+                style="margin-top:10px; padding:8px 12px; background:rgb(0, 85, 255); color:white; border:none;">
+                Snooze Alarm
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let triggeredEvents = new Set();
+        let audioUnlocked = false;
+        let currAlarm = null;
+
+        document.addEventListener('click', () => {
+            audioUnlocked = true;
+        });
+
+        const modal = document.getElementById('alarmModal')
+        const alarmText = document.getElementById('alarmText')
+        const stopbtn = document.getElementById("stopAlarmBtn")
+        const snoozebtn = document.getElementById("snoozeAlarmBtn")
+        let events = []
+        let today = ""
+        {% comment %} let currTime = "" {% endcomment %}
+
+        snoozebtn.addEventListener("click", () => {
+            if (currAlarm) {
+                currAlarm.pause()
+                currAlarm.currentTime = 0
+                currAlarm = null
+            }
+
+            modal.style.display = "none"
+            setTimeout(() => {
+                alarmText.textContent = "🔔 Snoozed Reminder!";
+                modal.style.display = "flex"
+
+                if (audioUnlocked) {
+                    currAlarm = new Audio('/static/alarm4.mpeg')
+                    currAlarm.loop = true
+                    currAlarm.play()
+                }
+            }, 3 * 30 * 1000);
+        });
+
+        stopbtn.addEventListener("click", () => {
+            if (currAlarm) {
+                currAlarm.pause()
+                currAlarm.currentTime = 0
+                currAlarm = null
+            }
+
+            modal.style.display = "none";
+        })
+
+        async function checkAlarms() {
+            const response = await fetch('/events-json/')
+            const events = await response.json()
+
+            const now = new Date()
+            const today = now.toISOString().split('T')[0]
+            const currTime = now.toTimeString().slice(0, 5)
+
+            events.forEach(event => {
+                const key = event.title + event.start_date + event.time;
+                if (event.time &&
+                    event.start_date === today &&
+                    event.time === currTime &&
+                    !triggeredEvents.has(key)) {
+                    alarmText.textContent = "Reminder"
+                    modal.style.display = "flex"
+
+                    if (audioUnlocked) {
+                        currAlarm = new Audio('/static/alarm4.mpeg')
+                        currAlarm.loop = true
+                        currAlarm.play()
+                    }
+
+                    triggeredEvents.add(key)
+                }
+            });
+        }
+
+        setInterval(checkAlarms, 1000)
+    </script>
+</body>
+
+</html>

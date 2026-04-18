@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <title>Document</title> -->
+</head>
+<body>
+    <form action="" method="post">
+        <select name="audio" id="audio" onchange="playSong(this.value);">
+            <option value="" selected>Select</option>
+            <option value="alarm1.mpeg">Song 1</option>
+            <option value="alarm2.mpeg">Song 2</option>
+            <option value="alarm3.mpeg">Song 3</option>
+            <option value="alarm4.mpeg">Song 4</option>
+        </select>
+    </form>
+
+    <script>
+        let currentAudio = null;
+        function playSong() {
+            const songName = document.getElementById('audio').value;
+            if (!songName) return;
+
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+            }
+
+            currentAudio = new Audio(`/static/${songName}`);
+            currentAudio.play();
+        }
+    </script>
+</body>
+</html>
